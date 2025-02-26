@@ -39,7 +39,10 @@ jobs:
       - name: Install dependencies
         run: yarn install
       - name: Build
-        run: yarn vite build
+        run: yarn build
+        env:
+          # Set base URL for GitHub Pages - this is what Vite looks for by default
+          BASE_URL: '/${{ github.event.repository.name }}/'
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

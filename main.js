@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+// Import assets directly - this tells Vite to include and process them
+import strategyCardUrl from './assets/strategy-card.jpg';
+import foxImageUrl from './assets/blackjack-fox.png';
 
 // Constants
 const TABLE_WIDTH = 20;
@@ -100,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Set up strategy card
     if (strategyCard) {
-        strategyCard.src = 'assets/strategy-card.jpg';
+        strategyCard.src = strategyCardUrl;
         strategyCard.onload = () => {
             console.log('Strategy card loaded successfully');
         };
@@ -135,7 +138,7 @@ function init2D() {
     
     // Preload fox image
     foxImage = new Image();
-    foxImage.src = 'assets/blackjack-fox.png';
+    foxImage.src = foxImageUrl;
     foxImage.onload = () => {
         console.log('Fox image loaded successfully');
         // Force a redraw once the image is loaded
@@ -359,7 +362,7 @@ function init3D() {
 // Load the fox model (using a simple cube as placeholder)
 function loadFoxModel() {
     // Create a simple 3D dealer using a textured cube (placeholder for a proper model)
-    const foxTexture = textureLoader.load('assets/blackjack-fox.png', 
+    const foxTexture = textureLoader.load(foxImageUrl, 
         // Success callback
         function(texture) {
             console.log('Fox texture loaded successfully');
