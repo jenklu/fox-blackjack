@@ -1,4 +1,6 @@
-export default {
+import { defineConfig } from 'vite';
+
+export default defineConfig({
   // Use the BASE_URL environment variable set in the GitHub Actions workflow
   // or default to '/' for local development
   base: process.env.BASE_URL || '/',
@@ -16,4 +18,4 @@ export default {
       '@assets': '/assets'
     }
   }
-} 
+}); 

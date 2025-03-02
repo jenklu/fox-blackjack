@@ -11,36 +11,55 @@ const CARD_WIDTH = 0.7;
 const CARD_HEIGHT = 1;
 const CARD_DEPTH = 0.01;
 
+// Type definitions
+type GameState = 'betting' | 'playerTurn' | 'dealerTurn' | 'gameOver';
+type CardRank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
+type CardSuit = '♠' | '♥' | '♦' | '♣';
+
 // Game state variables
-let scene, camera, renderer, controls;
-let deck = [];
-let playerHands = [[]]; // Multiple hands for splitting
-let dealerHand = [];
-let currentHandIndex = 0;
-let gameState = 'betting'; // 'betting', 'playerTurn', 'dealerTurn', 'gameOver'
-let foxModel;
-let message = "";
-let using2DFallback = false;
-let canvas2D, ctx2D;
+let scene: THREE.Scene | null = null;
+let camera: THREE.PerspectiveCamera | null = null;
+let renderer: THREE.WebGLRenderer | null = null;
+let controls: OrbitControls | null = null;
+let deck: Card[] = [];
+let playerHands: Card[][] = [[]]; // Multiple hands for splitting
+let dealerHand: Card[] = [];
+let currentHandIndex: number = 0;
+let gameState: GameState = 'betting'; // 'betting', 'playerTurn', 'dealerTurn', 'gameOver'
+let foxModel: THREE.Mesh | null = null;
+let message: string = "";
+let using2DFallback: boolean = false;
+let ctx2D: CanvasRenderingContext2D | null = null;
 
 // Card texture loader
 const textureLoader = new THREE.TextureLoader();
 
 // DOM elements
-let moneyDisplay, betDisplay, messageArea, hitButton, standButton, doubleButton, 
-    splitButton, newGameButton, decreaseBetButton, increaseBetButton, 
-    betAmountDisplay, strategyToggle, strategyCard, debugElement;
+let moneyDisplay: HTMLElement | null = null;
+let betDisplay: HTMLElement | null = null;
+let messageArea: HTMLElement | null = null;
+let hitButton: HTMLButtonElement | null = null;
+let standButton: HTMLButtonElement | null = null;
+let doubleButton: HTMLButtonElement | null = null;
+let splitButton: HTMLButtonElement | null = null;
+let newGameButton: HTMLButtonElement | null = null;
+let decreaseBetButton: HTMLButtonElement | null = null;
+let increaseBetButton: HTMLButtonElement | null = null;
+let betAmountDisplay: HTMLElement | null = null;
+let strategyToggle: HTMLButtonElement | null = null;
+let strategyCard: HTMLImageElement | null = null;
+let debugElement: HTMLElement | null = null;
 
 // Betting system variables
-let money = 1000;
-let currentBet = 100;
-let bets = [100]; // Bet for each hand when splitting
+let money: number = 1000;
+let currentBet: number = 100;
+let bets: number[] = [100]; // Bet for each hand when splitting
 
 // Global variables for 2D mode
-let foxImage = null;
+let foxImage: HTMLImageElement | null = null;
 
 // Check for WebGL support
-function isWebGLAvailable() {
+function isWebGLAvailable(): boolean {
     try {
         const canvas = document.createElement('canvas');
         return !!(window.WebGLRenderingContext && 
@@ -56,36 +75,44 @@ document.addEventListener('DOMContentLoaded', () => {
     moneyDisplay = document.getElementById('money-display');
     betDisplay = document.getElementById('bet-display');
     messageArea = document.getElementById('message-area');
-    hitButton = document.getElementById('hit-button');
-    standButton = document.getElementById('stand-button');
-    doubleButton = document.getElementById('double-button');
-    splitButton = document.getElementById('split-button');
-    newGameButton = document.getElementById('new-game-button');
-    decreaseBetButton = document.getElementById('decrease-bet');
-    increaseBetButton = document.getElementById('increase-bet');
+    hitButton = document.getElementById('hit-button') as HTMLButtonElement;
+    standButton = document.getElementById('stand-button') as HTMLButtonElement;
+    doubleButton = document.getElementById('double-button') as HTMLButtonElement;
+    splitButton = document.getElementById('split-button') as HTMLButtonElement;
+    newGameButton = document.getElementById('new-game-button') as HTMLButtonElement;
+    decreaseBetButton = document.getElementById('decrease-bet') as HTMLButtonElement;
+    increaseBetButton = document.getElementById('increase-bet') as HTMLButtonElement;
     betAmountDisplay = document.getElementById('bet-amount');
-    strategyToggle = document.getElementById('strategy-toggle');
-    strategyCard = document.getElementById('strategy-card');
+    strategyToggle = document.getElementById('strategy-toggle') as HTMLButtonElement;
+    strategyCard = document.getElementById('strategy-card') as HTMLImageElement;
     debugElement = document.getElementById('debug');
     
     // Show debug info
-    debugElement.style.display = 'block';
-    debugElement.textContent = 'Initializing game...';
+    if (debugElement) {
+        debugElement.style.display = 'block';
+        debugElement.textContent = 'Initializing game...';
+    }
     
     // Check WebGL support
     if (!isWebGLAvailable()) {
-        debugElement.textContent = 'WebGL not supported. Using 2D canvas fallback.';
+        if (debugElement) {
+            debugElement.textContent = 'WebGL not supported. Using 2D canvas fallback.';
+        }
         using2DFallback = true;
         init2D();
     } else {
-        debugElement.textContent = 'WebGL supported. Initializing 3D scene.';
+        if (debugElement) {
+            debugElement.textContent = 'WebGL supported. Initializing 3D scene.';
+        }
         // Initialize the 3D game
         try {
             init3D();
             animate();
         } catch (e) {
             console.error('Error initializing 3D scene:', e);
-            debugElement.textContent = 'Error initializing 3D scene. Using 2D canvas fallback.';
+            if (debugElement) {
+                debugElement.textContent = 'Error initializing 3D scene. Using 2D canvas fallback.';
+            }
             using2DFallback = true;
             init2D();
         }
@@ -119,7 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // Initialize 2D canvas as fallback
-function init2D() {
+function init2D(): void {
     const canvasContainer = document.getElementById('canvas');
     if (!canvasContainer) {
         console.error('Canvas container not found');
@@ -127,7 +154,7 @@ function init2D() {
     }
     
     // Create a 2D canvas
-    canvas2D = document.createElement('canvas');
+    const canvas2D = document.createElement('canvas');
     canvas2D.width = window.innerWidth;
     canvas2D.height = window.innerHeight;
     canvas2D.style.width = '100%';
@@ -142,7 +169,7 @@ function init2D() {
     foxImage.onload = () => {
         console.log('Fox image loaded successfully');
         // Force a redraw once the image is loaded
-        render2D();
+        render2D(canvas2D);
     };
     foxImage.onerror = (err) => {
         console.error('Error loading fox image:', err);
@@ -150,88 +177,89 @@ function init2D() {
     
     // Handle window resize
     window.addEventListener('resize', () => {
-        canvas2D.width = window.innerWidth;
-        canvas2D.height = window.innerHeight;
-        render2D();
+        if (canvas2D) {
+            canvas2D.width = window.innerWidth;
+            canvas2D.height = window.innerHeight;
+            render2D(canvas2D);
+        }
     });
     
     // Start animation loop
-    render2D();
+    render2D(canvas2D);
     
     console.log('2D fallback initialized');
 }
 
 // Render the 2D scene
-function render2D() {
+function render2D(canvas2D: HTMLCanvasElement): void {
     if (!ctx2D) return;
     
     // Clear canvas
     ctx2D.fillStyle = '#004400';
     ctx2D.fillRect(0, 0, canvas2D.width, canvas2D.height);
     
-    // Draw table
-    const tableWidth = canvas2D.width * 0.8;
-    const tableHeight = canvas2D.height * 0.7;
-    const tableX = (canvas2D.width - tableWidth) / 2;
-    const tableY = (canvas2D.height - tableHeight) / 2;
-    
-    ctx2D.fillStyle = '#009900';
-    ctx2D.fillRect(tableX, tableY, tableWidth, tableHeight);
-    
-    ctx2D.strokeStyle = '#663300';
-    ctx2D.lineWidth = 10;
-    ctx2D.strokeRect(tableX, tableY, tableWidth, tableHeight);
-    
-    // Draw dealer area
-    if (foxImage && foxImage.complete) {
-        ctx2D.drawImage(foxImage, canvas2D.width / 2 - 50, tableY + 20, 100, 100);
-    } else {
-        // Draw placeholder if image not loaded
-        ctx2D.fillStyle = '#ff9900';
-        ctx2D.fillRect(canvas2D.width / 2 - 50, tableY + 20, 100, 100);
-    }
-    
-    // Draw "Dealer" text
-    ctx2D.fillStyle = 'white';
-    ctx2D.font = '20px Arial';
-    ctx2D.textAlign = 'center';
-    ctx2D.fillText('Dealer', canvas2D.width / 2, tableY + 140);
-    
-    // Draw cards if game is in progress
-    if (gameState !== 'betting') {
-        // Draw dealer cards
-        dealerHand.forEach((card, index) => {
-            draw2DCard(card, canvas2D.width / 2 - 70 + index * 40, tableY + 150, card.faceUp);
-        });
-        
-        // Draw player cards
+    // Draw UI elements
+    if (playerHands.length > 0) {
+        // Draw player hands
         playerHands.forEach((hand, handIndex) => {
-            const handOffsetX = handIndex * 150 - (playerHands.length - 1) * 75;
-            
-            hand.forEach((card, cardIndex) => {
-                draw2DCard(card, canvas2D.width / 2 + handOffsetX + cardIndex * 40, tableY + tableHeight - 150, true);
-            });
+            // Highlight current hand if in player turn
+            if (gameState === 'playerTurn' && handIndex === currentHandIndex) {
+                if (ctx2D) {
+                    ctx2D.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                    ctx2D.fillRect(
+                        canvas2D.width / 2 - 150, 
+                        canvas2D.height / 2 + 50, 
+                        300, 
+                        150
+                    );
+                }
+            }
             
             // Draw hand value
-            ctx2D.fillStyle = 'white';
-            ctx2D.font = '18px Arial';
-            ctx2D.textAlign = 'center';
-            ctx2D.fillText(`Hand ${handIndex + 1}: ${getHandValue(hand)}`, 
-                canvas2D.width / 2 + handOffsetX, tableY + tableHeight - 80);
+            if (ctx2D) {
+                ctx2D.fillStyle = 'white';
+                ctx2D.font = '18px Arial';
+                ctx2D.textAlign = 'center';
+                ctx2D.fillText(`Hand ${handIndex + 1}: ${getHandValue(hand)}`, 
+                    canvas2D.width / 2, 
+                    canvas2D.height / 2 + 30
+                );
+            }
+            
+            // Draw cards
+            hand.forEach((card, cardIndex) => {
+                const xPos = canvas2D.width / 2 - (hand.length * 40 / 2) + cardIndex * 40;
+                const yPos = canvas2D.height / 2 + 70;
+                draw2DCard(card, xPos, yPos, card.faceUp);
+            });
+        });
+        
+        // Draw dealer hand
+        dealerHand.forEach((card, cardIndex) => {
+            const xPos = canvas2D.width / 2 - (dealerHand.length * 40 / 2) + cardIndex * 40;
+            const yPos = canvas2D.height / 2 - 70;
+            draw2DCard(card, xPos, yPos, card.faceUp);
         });
     }
     
-    // Add debug info
-    if (debugElement) {
-        debugElement.textContent = `WebGL not supported. Using 2D canvas fallback.`;
+    // Draw fox mascot
+    if (foxImage && foxImage.complete) {
+        const foxWidth = 150;
+        const foxHeight = 150;
+        if (ctx2D) {
+            ctx2D.drawImage(
+                foxImage, 
+                canvas2D.width - foxWidth - 20, 
+                canvas2D.height - foxHeight - 20, 
+                foxWidth, 
+                foxHeight
+            );
+        }
     }
-    
-    // Request next frame
-    requestAnimationFrame(render2D);
 }
 
 // Draw a 2D card
-function draw2DCard(card, x, y, faceUp) {
+function draw2DCard(card: Card, x: number, y: number, faceUp: boolean): void {
     if (!ctx2D) return;
     
     // Card dimensions
@@ -288,7 +316,7 @@ function draw2DCard(card, x, y, faceUp) {
 }
 
 // Initialize the 3D scene
-function init3D() {
+function init3D(): void {
     console.log('Initializing 3D game...');
     
     // Set up Three.js scene
@@ -300,18 +328,10 @@ function init3D() {
     camera.position.set(0, 10, 8);
     camera.lookAt(0, 0, 0);
 
-    // Set up renderer with explicit context attributes
-    const contextAttributes = {
-        alpha: true,
-        antialias: true,
-        powerPreference: 'default',
-        failIfMajorPerformanceCaveat: false
-    };
-    
+    // Set up renderer
     renderer = new THREE.WebGLRenderer({ 
         antialias: true,
         canvas: document.createElement('canvas'),
-        context: null,
         precision: 'highp',
         powerPreference: 'default',
         alpha: true,
@@ -360,9 +380,10 @@ function init3D() {
 }
 
 // Load the fox model (using a simple cube as placeholder)
-function loadFoxModel() {
+function loadFoxModel(): void {
     // Create a simple 3D dealer using a textured cube (placeholder for a proper model)
-    const foxTexture = textureLoader.load(foxImageUrl, 
+    textureLoader.load(
+        foxImageUrl, 
         // Success callback
         function(texture) {
             console.log('Fox texture loaded successfully');
@@ -371,7 +392,7 @@ function loadFoxModel() {
             foxModel = new THREE.Mesh(foxGeometry, foxMaterial);
             foxModel.position.set(0, 0.5, -3);
             foxModel.scale.set(2, 2, 1);
-            scene.add(foxModel);
+            if (scene) scene.add(foxModel);
         },
         // Progress callback
         undefined,
@@ -384,13 +405,15 @@ function loadFoxModel() {
             foxModel = new THREE.Mesh(foxGeometry, foxMaterial);
             foxModel.position.set(0, 0.5, -3);
             foxModel.scale.set(2, 2, 1);
-            scene.add(foxModel);
+            if (scene) scene.add(foxModel);
         }
     );
 }
 
 // Create the table
-function createTable() {
+function createTable(): void {
+    if (!scene) return;
+    
     const tableGeometry = new THREE.BoxGeometry(TABLE_WIDTH, 0.1, TABLE_DEPTH);
     const tableMaterial = new THREE.MeshStandardMaterial({ 
         color: 0x009900,
@@ -409,16 +432,20 @@ function createTable() {
 }
 
 // Handle window resize
-function onWindowResize() {
+function onWindowResize(): void {
     if (using2DFallback) return;
     
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    if (camera) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+    }
+    if (renderer) {
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
 }
 
 // Animation loop for 3D
-function animate() {
+function animate(): void {
     if (using2DFallback) return;
     
     requestAnimationFrame(animate);
@@ -430,7 +457,12 @@ function animate() {
 
 // Card class to represent each card
 class Card {
-    constructor(suit, rank, object3D = null) {
+    suit: CardSuit;
+    rank: CardRank;
+    object3D: THREE.Mesh | null;
+    faceUp: boolean;
+    
+    constructor(suit: CardSuit, rank: CardRank, object3D: THREE.Mesh | null = null) {
         this.suit = suit;
         this.rank = rank;
         this.object3D = object3D;
@@ -438,20 +470,20 @@ class Card {
     }
   
     // Return the card's value
-    getValue() {
+    getValue(): number {
         if (['J', 'Q', 'K'].includes(this.rank)) return 10;
         if (this.rank === 'A') return 11;
         return parseInt(this.rank);
     }
   
     // Create a 3D card model
-    create3DModel() {
+    create3DModel(): Card {
         if (using2DFallback) return this;
         
         const cardGeometry = new THREE.BoxGeometry(CARD_WIDTH, CARD_HEIGHT, CARD_DEPTH);
         
         // Create materials for front and back of card
-        const materials = [];
+        const materials: THREE.MeshStandardMaterial[] = [];
         
         // Front face (card value)
         const frontMaterial = new THREE.MeshStandardMaterial({ 
@@ -496,6 +528,11 @@ class Card {
         canvas.width = 256;
         canvas.height = 512;
         const context = canvas.getContext('2d');
+        if (!context) {
+            console.error('Could not get 2D context for card texture');
+            return this;
+        }
+        
         context.fillStyle = '#ffffff';
         context.fillRect(0, 0, canvas.width, canvas.height);
         
@@ -520,6 +557,10 @@ class Card {
         backCanvas.width = 256;
         backCanvas.height = 512;
         const backContext = backCanvas.getContext('2d');
+        if (!backContext) {
+            console.error('Could not get 2D context for card back texture');
+            return this;
+        }
         
         // Fill background with solid red
         backContext.fillStyle = '#cc0000';
@@ -560,7 +601,7 @@ class Card {
     }
     
     // Flip card face up or down
-    flip() {
+    flip(): void {
         // Toggle face up state
         this.faceUp = !this.faceUp;
         
@@ -574,10 +615,10 @@ class Card {
 }
 
 // Create and return a new deck of 52 cards
-function createDeck() {
-    const suits = ['♠', '♥', '♦', '♣'];
-    const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-    let newDeck = [];
+function createDeck(): Card[] {
+    const suits: CardSuit[] = ['♠', '♥', '♦', '♣'];
+    const ranks: CardRank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+    let newDeck: Card[] = [];
     
     for (let s of suits) {
         for (let r of ranks) {
@@ -588,7 +629,7 @@ function createDeck() {
 }
 
 // Shuffle the deck using Fisher-Yates
-function shuffleDeck(deck) {
+function shuffleDeck(deck: Card[]): Card[] {
     for (let i = deck.length - 1; i > 0; i--) {
         let j = Math.floor(Math.random() * (i + 1));
         [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -597,7 +638,7 @@ function shuffleDeck(deck) {
 }
 
 // Setup a new hand
-function setupGame() {
+function setupGame(): void {
     // Clear the scene of cards
     clearCardsFromScene();
     
@@ -632,7 +673,7 @@ function setupGame() {
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     }
     
     gameState = 'playerTurn';
@@ -651,13 +692,13 @@ function setupGame() {
 }
 
 // Draw a card from the deck and create its 3D model
-function drawCard() {
-    const card = deck.pop();
+function drawCard(): Card {
+    const card = deck.pop()!;
     
     // Only create 3D model and add to scene if not in 2D fallback mode
     if (!using2DFallback) {
         card.create3DModel();
-        if (scene) {
+        if (scene && card.object3D) {
             scene.add(card.object3D);
         }
     }
@@ -666,9 +707,9 @@ function drawCard() {
 }
 
 // Position all cards on the table
-function positionCards() {
+function positionCards(): void {
     // Position dealer's cards
-    dealerHand.forEach((card, index) => {
+    dealerHand.forEach((card: Card, index: number) => {
         if (card.object3D) {
             card.object3D.position.set(-2 + index * 1.2, 0, -2);
             
@@ -689,10 +730,10 @@ function positionCards() {
     });
     
     // Position player's hands
-    playerHands.forEach((hand, handIndex) => {
+    playerHands.forEach((hand: Card[], handIndex: number) => {
         const handOffsetX = handIndex * 4 - (playerHands.length - 1) * 2;
         
-        hand.forEach((card, cardIndex) => {
+        hand.forEach((card: Card, cardIndex: number) => {
             if (card.object3D) {
                 card.object3D.position.set(handOffsetX + cardIndex * 1.2, 0, 2);
                 
@@ -709,26 +750,25 @@ function positionCards() {
 }
 
 // Remove cards from the scene
-function clearCardsFromScene() {
-    // Remove player cards
-    playerHands.forEach(hand => {
-        hand.forEach(card => {
-            if (card.object3D) {
+function clearCardsFromScene(): void {
+    // Clear 3D scene
+    for (const hand of playerHands) {
+        for (const card of hand) {
+            if (card.object3D && scene) {
                 scene.remove(card.object3D);
             }
-        });
-    });
+        }
+    }
     
-    // Remove dealer cards
-    dealerHand.forEach(card => {
-        if (card.object3D) {
+    for (const card of dealerHand) {
+        if (card.object3D && scene) {
             scene.remove(card.object3D);
         }
-    });
+    }
 }
 
 // Calculate hand value with Ace adjustment
-function getHandValue(hand) {
+function getHandValue(hand: Card[]): number {
     let value = 0;
     let aces = 0;
     
@@ -747,7 +787,7 @@ function getHandValue(hand) {
 }
 
 // Check if hand can be split
-function canSplit(hand) {
+function canSplit(hand: Card[]): boolean {
     return hand.length === 2 && 
            hand[0].rank === hand[1].rank && 
            playerHands.length < 4 && // Limit to 4 split hands
@@ -755,12 +795,12 @@ function canSplit(hand) {
 }
 
 // Check if hand can be doubled down
-function canDoubleDown(hand) {
+function canDoubleDown(hand: Card[]): boolean {
     return hand.length === 2 && money >= bets[currentHandIndex];
 }
 
 // Check for dealer blackjack
-function checkForDealerBlackjack() {
+function checkForDealerBlackjack(): boolean {
     const dealerUpCard = dealerHand[0];
     
     // Only check for dealer blackjack if the up card is 10, face, or Ace
@@ -805,7 +845,7 @@ function checkForDealerBlackjack() {
 }
 
 // Check for player blackjack
-function checkForPlayerBlackjack() {
+function checkForPlayerBlackjack(): boolean {
     const playerValue = getHandValue(playerHands[0]);
     
     // Check for player blackjack
@@ -834,7 +874,7 @@ function checkForPlayerBlackjack() {
 }
 
 // Player actions
-function hit() {
+function hit(): void {
     if (gameState !== 'playerTurn') return;
     
     const currentHand = playerHands[currentHandIndex];
@@ -843,7 +883,7 @@ function hit() {
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     }
     
     const handValue = getHandValue(currentHand);
@@ -860,21 +900,21 @@ function hit() {
     setButtonStates();
 }
 
-function stand() {
+function stand(): void {
     if (gameState !== 'playerTurn') return;
     
     nextHand();
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     }
     
     updateUI();
     setButtonStates();
 }
 
-function doubleDown() {
+function doubleDown(): void {
     if (gameState !== 'playerTurn' || !canDoubleDown(playerHands[currentHandIndex])) return;
     
     // Double the bet
@@ -889,7 +929,7 @@ function doubleDown() {
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     }
     
     const handValue = getHandValue(currentHand);
@@ -904,13 +944,13 @@ function doubleDown() {
     setButtonStates();
 }
 
-function split() {
+function split(): void {
     if (gameState !== 'playerTurn' || !canSplit(playerHands[currentHandIndex])) return;
     
     const currentHand = playerHands[currentHandIndex];
     
     // Create a new hand with the second card
-    const newHand = [currentHand.pop()];
+    const newHand: Card[] = [currentHand.pop()!];
     playerHands.splice(currentHandIndex + 1, 0, newHand);
     
     // Add a new bet for the second hand
@@ -926,7 +966,7 @@ function split() {
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     }
     
     // Check for aces (in some casinos, split aces only get one card each)
@@ -943,7 +983,7 @@ function split() {
 }
 
 // Check for blackjack after splitting
-function checkBlackjackAfterSplit() {
+function checkBlackjackAfterSplit(): void {
     const currentHand = playerHands[currentHandIndex];
     if (getHandValue(currentHand) === 21) {
         // In some casinos, blackjack after split is just 21, not a true blackjack
@@ -953,7 +993,7 @@ function checkBlackjackAfterSplit() {
 }
 
 // Move to the next hand or dealer's turn
-function nextHand() {
+function nextHand(): void {
     currentHandIndex++;
     
     // If there are more hands to play
@@ -962,7 +1002,7 @@ function nextHand() {
         
         // Force a redraw in 2D mode
         if (using2DFallback && ctx2D) {
-            render2D();
+            render2D(ctx2D.canvas);
         }
     } else {
         // All hands played, move to dealer's turn
@@ -971,7 +1011,7 @@ function nextHand() {
 }
 
 // Dealer's turn
-function dealerTurn() {
+function dealerTurn(): void {
     gameState = 'dealerTurn';
     message = "Dealer's turn";
     
@@ -1000,14 +1040,14 @@ function dealerTurn() {
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     } else {
         // Force rendering in 3D
         positionCards();
     }
     
     // Dealer draws until they have at least 17
-    const dealerPlay = () => {
+    const dealerPlay = (): void => {
         const dealerValue = getHandValue(dealerHand);
         console.log(`Dealer's current hand value: ${dealerValue}`);
         
@@ -1020,7 +1060,7 @@ function dealerTurn() {
             
             // Force a redraw in 2D mode
             if (using2DFallback && ctx2D) {
-                render2D();
+                render2D(ctx2D.canvas);
             }
             
             // Use setTimeout to animate dealer drawing cards
@@ -1040,12 +1080,12 @@ function dealerTurn() {
 }
 
 // Resolve the game and determine winners
-function resolveGame() {
+function resolveGame(): void {
     const dealerValue = getHandValue(dealerHand);
     let resultsMessage = "";
     
     // Check each player hand against dealer
-    playerHands.forEach((hand, index) => {
+    playerHands.forEach((hand: Card[], index: number) => {
         const handValue = getHandValue(hand);
         
         // Skip busted hands (already deducted during play)
@@ -1081,7 +1121,7 @@ function resolveGame() {
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     }
     
     updateUI();
@@ -1089,7 +1129,7 @@ function resolveGame() {
 }
 
 // Start a new game
-function newGame() {
+function newGame(): void {
     console.log('New game button clicked');
     
     // Check if player has money to bet
@@ -1114,22 +1154,22 @@ function newGame() {
     
     // Force a redraw in 2D mode
     if (using2DFallback && ctx2D) {
-        render2D();
+        render2D(ctx2D.canvas);
     }
     
     console.log('New game started');
 }
 
 // Update the UI elements
-function updateUI() {
+function updateUI(): void {
     if (moneyDisplay) moneyDisplay.textContent = `Money: $${money}`;
     if (betDisplay) betDisplay.textContent = `Current Bet: $${currentBet}`;
-    if (betAmountDisplay) betAmountDisplay.textContent = currentBet;
+    if (betAmountDisplay) betAmountDisplay.textContent = currentBet.toString();
     if (messageArea) messageArea.textContent = message;
 }
 
 // Enable/disable buttons based on game state
-function setButtonStates() {
+function setButtonStates(): void {
     // Guard against null elements
     if (!hitButton || !standButton || !doubleButton || !splitButton || 
         !newGameButton || !decreaseBetButton || !increaseBetButton) {
@@ -1186,14 +1226,14 @@ function setButtonStates() {
 }
 
 // Betting functions
-function decreaseBet() {
+function decreaseBet(): void {
     if (currentBet >= 20) {
         currentBet -= 10;
         updateUI();
     }
 }
 
-function increaseBet() {
+function increaseBet(): void {
     if (money >= currentBet + 10) {
         currentBet += 10;
         updateUI();
@@ -1201,17 +1241,21 @@ function increaseBet() {
 }
 
 // Toggle strategy card visibility
-function toggleStrategyCard() {
+function toggleStrategyCard(): void {
     console.log('Toggle strategy card clicked');
     if (strategyCard) {
         if (strategyCard.style.display === 'none' || strategyCard.style.display === '') {
             console.log('Showing strategy card');
             strategyCard.style.display = 'block';
-            strategyToggle.textContent = 'Hide Strategy';
+            if (strategyToggle) {
+                strategyToggle.textContent = 'Hide Strategy';
+            }
         } else {
             console.log('Hiding strategy card');
             strategyCard.style.display = 'none';
-            strategyToggle.textContent = 'Show Strategy';
+            if (strategyToggle) {
+                strategyToggle.textContent = 'Show Strategy';
+            }
         }
     } else {
         console.error('Strategy card element not found');
