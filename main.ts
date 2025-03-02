@@ -4,6 +4,9 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import strategyCardUrl from './assets/strategy-card.jpg';
 import foxImageUrl from './assets/blackjack-fox.png';
 
+// Development mode flag from Vite environment
+const DEV_MODE = import.meta.env.DEV;
+
 // Constants
 const TABLE_WIDTH = 20;
 const TABLE_DEPTH = 10;
@@ -89,19 +92,21 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Show debug info
     if (debugElement) {
-        debugElement.style.display = 'block';
-        debugElement.textContent = 'Initializing game...';
+        debugElement.style.display = DEV_MODE ? 'block' : 'none';
+        if (DEV_MODE) {
+            debugElement.textContent = 'Initializing game...';
+        }
     }
     
     // Check WebGL support
     if (!isWebGLAvailable()) {
-        if (debugElement) {
+        if (debugElement && DEV_MODE) {
             debugElement.textContent = 'WebGL not supported. Using 2D canvas fallback.';
         }
         using2DFallback = true;
         init2D();
     } else {
-        if (debugElement) {
+        if (debugElement && DEV_MODE) {
             debugElement.textContent = 'WebGL supported. Initializing 3D scene.';
         }
         // Initialize the 3D game
@@ -110,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
             animate();
         } catch (e) {
             console.error('Error initializing 3D scene:', e);
-            if (debugElement) {
+            if (debugElement && DEV_MODE) {
                 debugElement.textContent = 'Error initializing 3D scene. Using 2D canvas fallback.';
             }
             using2DFallback = true;
@@ -1143,7 +1148,7 @@ function newGame(): void {
     money -= currentBet;
     
     // Clear any error messages
-    if (debugElement) {
+    if (debugElement && DEV_MODE) {
         debugElement.textContent = using2DFallback ? 
             'WebGL not supported. Using 2D canvas fallback.' : 
             'Game running in 3D mode.';
